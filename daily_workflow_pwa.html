@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Workflow - Your Personal Productivity Hub</title>
+    
+    <!-- PWA manifest -->
+    <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkRhaWx5IFdvcmtmbG93IiwKICAic2hvcnRfbmFtZSI6ICJEYWlseVdvcmsiLAogICJkZXNjcmlwdGlvbiI6ICJZb3VyIHBlcnNvbmFsIHByb2R1Y3Rpdml0eSBodWIgZm9yIGRhaWx5IHdvcmsgbWFuYWdlbWVudCIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzFhMWEyZSIsCiAgInRoZW1lX2NvbG9yIjogIiM2MzY2ZjEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOREFpSUdobGFXZG9kRDBpTWpRd0lqNDhjMk55YVhCMFBqNHZQSE4yWnowaSt3a0tQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMMmgwWVhCc0xtOXlaeTl4T1RrNUwzaG9kRzFzSWlCM2FXUjBhRDBpTWpRd0lpQm9aV2xuYUhROUlqSTBNQ0krSUVSaGFXeDVJRmR2Y210bWJHOTNQR05wY21Oc1pTQmplRDBpTVRJd0lpQmplVDBpTVRJd0lpQnlQU0k0TUNJdlBpWm5kRHM4TDBObGNtTnNaVDRnUUNCa1lXbHNlU0IzYjNKclpteHZkeUF3THpNaVBqeDBaWGgwSUdrOVYxSmdUVTFpVEdGMGFXNHVRVTFUVUdWMWVBND0iLAogICAgICAic2l6ZXMiOiAiMjQweDI0MCIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXQp9">
+    
+    <!-- iOS meta tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Daily Workflow">
+
+    <script src="https://unpkg.com/dexie@3/dist/dexie.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .date-navigation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        #datePicker {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #e2e8f0;
+            padding: 8px;
+            font-size: 14px;
+        }
+
+        .date-display {
+            font-size: 1.2em;
+            color: #94a3b8;
+            margin-bottom: 20px;
+        }
+
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: #e2e8f0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .tab-btn:hover {
+            background: rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .tab-btn.active {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3); }
+            50% { transform: scale(1.05); box-shadow: 0 12px 35px rgba(99, 102, 241, 0.6); }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card h3 {
+            color: #06b6d4;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            color: #e2e8f0;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e2e8f0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            border-left: 4px solid #6366f1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .task-item.completed {
+            opacity: 0.7;
+            border-left-color: #10b981;
+        }
+
+        .task-checkbox {
+            width: 20px;
+            height: 20px;
+            margin: 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.2));
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #06b6d4;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #94a3b8;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .search-results {
+            max-height: 400px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .search-result {
+            padding: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .search-result:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            justify-content: center;
+        }
+
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .template-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .template-card:hover {
+            border-color: #6366f1;
+            transform: translateY(-5px);
+        }
+
+        .offline-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border-radius: 20px;
+            font-size: 12px;
+            display: none;
+        }
+
+        .time-tracker {
+            background: rgba(16, 185, 129, 0.1);
+            border: 2px solid rgba(16, 185, 129, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 3em;
+            font-weight: 700;
+            color: #10b981;
+            margin: 20px 0;
+        }
+
+        .ai-suggestions {
+            background: rgba(139, 92, 246, 0.1);
+            border: 2px solid rgba(139, 92, 246, 0.3);
+            border-radius: 16px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .suggestion-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border-left: 3px solid #8b5cf6;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .nav-tabs {
+                justify-content: center;
+            }
+            
+            .quick-actions {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="offline-indicator">
+        📡 Working Offline
+    </div>
+
+    <div class="container">
+        <header class="header">
+            <h1>Daily Workflow</h1>
+            <div class="date-navigation">
+                <button class="btn btn-secondary" onclick="changeDate(-1)">◀ Yesterday</button>
+                <input type="date" id="datePicker" onchange="setDate(this.value)">
+                <button class="btn btn-primary" onclick="goToToday()">Today</button>
+                <button class="btn btn-secondary" onclick="changeDate(1)">Tomorrow ▶</button>
+            </div>
+            <div class="date-display" id="currentDate"></div>
+            <div class="quick-actions">
+                <button class="btn btn-secondary" onclick="exportData()">📤 Export</button>
+                <button class="btn btn-secondary" onclick="importData()">📥 Import</button>
+                <button class="btn btn-secondary" onclick="generateReport()">📊 Report</button>
+            </div>
+        </header>
+
+        <nav class="nav-tabs">
+            <button class="tab-btn active" onclick="switchTab('daily')">📝 Daily Log</button>
+            <button class="tab-btn" onclick="switchTab('tasks')">✅ Tasks</button>
+            <button class="tab-btn" onclick="switchTab('analytics')">📊 Analytics</button>
+            <button class="tab-btn" onclick="switchTab('search')">🔍 Search</button>
+            <button class="tab-btn" onclick="switchTab('templates')">📋 Templates</button>
+            <button class="tab-btn" onclick="switchTab('timer')">⏱️ Timer</button>
+        </nav>
+
+        <!-- Daily Log Tab -->
+        <div id="daily" class="tab-content active">
+            <div class="card">
+                <h3>📝 Focus Areas</h3>
+                <div class="form-group">
+                    <label>Top 3 Priorities</label>
+                    <input type="text" placeholder="Priority 1" class="priority-input" data-index="0">
+                    <input type="text" placeholder="Priority 2" class="priority-input" data-index="1">
+                    <input type="text" placeholder="Priority 3" class="priority-input" data-index="2">
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📓 Notes & Observations</h3>
+                <textarea id="dailyNotes" placeholder="What's happening today? Key insights, decisions, blockers..."></textarea>
+            </div>
+
+            <div class="card">
+                <h3>🔗 Links & References</h3>
+                <textarea id="dailyLinks" placeholder="Important links, documents, code repos..."></textarea>
+            </div>
+
+            <div class="card">
+                <h3>🌅 End of Day Review</h3>
+                <div class="form-group">
+                    <label>What did you complete?</label>
+                    <textarea id="completed" placeholder="List your achievements..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>What blocked you?</label>
+                    <textarea id="blockers" placeholder="Challenges, obstacles, dependencies..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Tomorrow's priority</label>
+                    <input type="text" id="tomorrowPriority" placeholder="Most important thing for tomorrow">
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="saveDailyLog()">💾 Save Daily Log</button>
+        </div>
+
+        <!-- Tasks Tab -->
+        <div id="tasks" class="tab-content">
+            <div class="card">
+                <h3>✅ Task Management</h3>
+                <div class="form-group">
+                    <input type="text" id="newTask" placeholder="Add a new task..." onkeypress="handleTaskKeyPress(event)">
+                    <button class="btn btn-primary" onclick="addTask()">➕ Add Task</button>
+                </div>
+                <ul id="taskList" class="task-list"></ul>
+            </div>
+
+            <div class="card">
+                <h3>📈 Task Insights</h3>
+                <div id="taskStats"></div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <div class="card">
+                <h3>📊 Productivity Analytics</h3>
+                <div class="stats-grid" id="analyticsGrid"></div>
+            </div>
+
+            <div class="ai-suggestions">
+                <h3>🤖 AI Insights</h3>
+                <div id="aiInsights">
+                    <button class="btn btn-primary" onclick="generateAiInsights()">Generate Gemini Insights</button>
+                    <div id="insightsContent" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Search Tab -->
+        <div id="search" class="tab-content">
+            <div class="card">
+                <h3>🔍 Search Your History</h3>
+                <input type="text" id="searchInput" placeholder="Search across all your notes, tasks, and logs..." onkeypress="handleSearchKeyPress(event)">
+                <button class="btn btn-primary" onclick="performSearch()">🔍 Search</button>
+                <div id="searchResults" class="search-results"></div>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates" class="tab-content">
+            <div class="card">
+                <h3>📋 Daily Templates</h3>
+                <div class="template-grid">
+                    <div class="template-card" onclick="applyTemplate('standard')">
+                        <h4>📝 Standard Daily</h4>
+                        <p>A general-purpose template for a typical workday.</p>
+                    </div>
+                    <div class="template-card" onclick="applyTemplate('meeting')">
+                        <h4>🤝 Meeting Day</h4>
+                        <p>Focused on preparing for and documenting meetings.</p>
+                    </div>
+                    <div class="template-card" onclick="applyTemplate('project')">
+                        <h4>🚀 Project Focus</h4>
+                        <p>For deep work sessions on a specific project.</p>
+                    </div>
+                    <div class="template-card" onclick="applyTemplate('planning')">
+                        <h4>🎯 Planning & Strategy</h4>
+                        <p>For strategic planning and goal-setting sessions.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timer Tab -->
+        <div id="timer" class="tab-content">
+            <div class="card">
+                <div class="time-tracker">
+                    <h3>⏱️ Focus Timer</h3>
+                    <div class="timer-display" id="timerDisplay">00:00:00</div>
+                    <input type="text" id="currentTask" placeholder="What are you working on?">
+                    <div class="quick-actions">
+                        <button class="btn btn-primary" onclick="startTimer()">▶️ Start</button>
+                        <button class="btn btn-secondary" onclick="pauseTimer()">⏸️ Pause</button>
+                        <button class="btn btn-secondary" onclick="stopTimer()">⏹️ Stop</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>📊 Time Tracking History</h3>
+                <div id="timeHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =============================================================================
+        // GLOBAL VARIABLES
+        // =============================================================================
+        let currentTimer = null;
+        let startTime = null;
+        let elapsedTime = 0;
+        let isPaused = false;
+        let currentDate = new Date();
+
+        // =============================================================================
+        // PWA & OFFLINE FUNCTIONALITY
+        // =============================================================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:application/javascript;base64,' + btoa(`
+                const CACHE_NAME = 'daily-workflow-v1';
+                self.addEventListener('install', event => {
+                    self.skipWaiting();
+                });
+                self.addEventListener('fetch', event => {
+                    event.respondWith(fetch(event.request).catch(() => new Response('Offline'))); 
+                });
+            `)).catch(e => console.log('SW failed:', e));
+        }
+
+        function updateOnlineStatus() {
+            document.body.className = navigator.onLine ? 'online' : 'offline';
+        }
+        window.addEventListener('online', updateOnlineStatus);
+        window.addEventListener('offline', updateOnlineStatus);
+
+        // =============================================================================
+        // DATA MANAGEMENT (with IndexedDB via Dexie.js)
+        // =============================================================================
+        const db = new Dexie('dailyWorkflow');
+        db.version(1).stores({
+            dailyLogs: 'date,priorities,notes,links,completed,blockers,tomorrowPriority',
+            tasks: '++id,text,completed,createdAt',
+            timeEntries: '++id,task,duration,date'
+        });
+
+        function getDateKey(date = new Date()) {
+            return date.toISOString().split('T')[0];
+        }
+
+        async function getDailyLog(date = new Date()) {
+            const key = getDateKey(date);
+            const log = await db.dailyLogs.get(key);
+            return log || {
+                date: key,
+                priorities: ['', '', ''],
+                notes: '',
+                links: '',
+                completed: '',
+                blockers: '',
+                tomorrowPriority: ''
+            };
+        }
+
+        async function saveDailyLog(data, date = new Date()) {
+            const key = getDateKey(date);
+            const logData = { ...data, date: key, timestamp: new Date().toISOString() };
+            await db.dailyLogs.put(logData);
+        }
+
+        // =============================================================================
+        // UI MANAGEMENT & DATE NAVIGATION
+        // =============================================================================
+        function updateCurrentDate() {
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('currentDate').textContent = currentDate.toLocaleDateString('en-US', options);
+            document.getElementById('datePicker').value = getDateKey(currentDate);
+        }
+
+        function changeDate(days) {
+            currentDate.setDate(currentDate.getDate() + days);
+            updateCurrentDate();
+            loadDailyLog();
+        }
+
+        function setDate(dateString) {
+            currentDate = new Date(dateString + 'T00:00:00'); // Adjust for timezone
+            updateCurrentDate();
+            loadDailyLog();
+        }
+
+        function goToToday() {
+            currentDate = new Date();
+            updateCurrentDate();
+            loadDailyLog();
+        }
+
+        async function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+
+            await loadTabData(tabName);
+        }
+
+        async function loadTabData(tabName) {
+            switch(tabName) {
+                case 'daily': await loadDailyLog(); break;
+                case 'tasks': await loadTasks(); break;
+                case 'analytics': await loadAnalytics(); break;
+                case 'timer': await loadTimeHistory(); break;
+                case 'search': break;
+                case 'templates': break;
+            }
+        }
+
+        // =============================================================================
+        // DAILY LOG FUNCTIONALITY
+        // =============================================================================
+        async function loadDailyLog() {
+            const log = await getDailyLog(currentDate);
+            
+            document.querySelectorAll('.priority-input').forEach((input, index) => {
+                input.value = log.priorities[index] || '';
+            });
+
+            document.getElementById('dailyNotes').value = log.notes || '';
+            document.getElementById('dailyLinks').value = log.links || '';
+            document.getElementById('completed').value = log.completed || '';
+            document.getElementById('blockers').value = log.blockers || '';
+            document.getElementById('tomorrowPriority').value = log.tomorrowPriority || '';
+        }
+
+        async function saveDailyLog() {
+            const priorities = Array.from(document.querySelectorAll('.priority-input')).map(input => input.value);
+            
+            const logData = {
+                priorities,
+                notes: document.getElementById('dailyNotes').value,
+                links: document.getElementById('dailyLinks').value,
+                completed: document.getElementById('completed').value,
+                blockers: document.getElementById('blockers').value,
+                tomorrowPriority: document.getElementById('tomorrowPriority').value
+            };
+
+            await saveDailyLog(logData, currentDate);
+            showNotification('✅ Daily log saved successfully!');
+        }
+
+        // =============================================================================
+        // TASK MANAGEMENT
+        // =============================================================================
+        async function addTask() {
+            const taskText = document.getElementById('newTask').value.trim();
+            if (!taskText) return;
+
+            const task = {
+                text: taskText,
+                completed: false,
+                createdAt: new Date().toISOString()
+            };
+
+            await db.tasks.add(task);
+            
+            document.getElementById('newTask').value = '';
+            await loadTasks();
+        }
+
+        async function toggleTask(taskId) {
+            const task = await db.tasks.get(taskId);
+            if (task) {
+                await db.tasks.update(taskId, { 
+                    completed: !task.completed,
+                    completedAt: !task.completed ? new Date().toISOString() : null
+                });
+                await loadTasks();
+            }
+        }
+
+        async function deleteTask(taskId) {
+            await db.tasks.delete(taskId);
+            await loadTasks();
+        }
+
+        async function loadTasks() {
+            const taskList = document.getElementById('taskList');
+            const tasks = await db.tasks.orderBy('createdAt').reverse().limit(20).toArray();
+
+            taskList.innerHTML = tasks.map(task => `
+                <li class="task-item ${task.completed ? 'completed' : ''}">
+                    <input type="checkbox" class="task-checkbox" 
+                           ${task.completed ? 'checked' : ''} 
+                           onchange="toggleTask(${task.id})">
+                    <span style="flex: 1">${task.text}</span>
+                    <button onclick="deleteTask(${task.id})" style="background: #ef4444; border: none; border-radius: 50%; width: 30px; height: 30px; color: white; cursor: pointer;">×</button>
+                </li>
+            `).join('');
+
+            await updateTaskStats();
+        }
+
+        async function updateTaskStats() {
+            const tasks = await db.tasks.toArray();
+            const today = new Date().toDateString();
+            const todayTasks = tasks.filter(t => new Date(t.createdAt).toDateString() === today);
+            const completed = todayTasks.filter(t => t.completed).length;
+            const total = todayTasks.length;
+
+            document.getElementById('taskStats').innerHTML = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">${completed}</div>
+                        <div class="stat-label">Completed Today</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${total - completed}</div>
+                        <div class="stat-label">Remaining</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${total > 0 ? Math.round((completed/total) * 100) : 0}%</div>
+                        <div class="stat-label">Progress</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${tasks.length}</div>
+                        <div class="stat-label">Total Tasks</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function handleTaskKeyPress(event) {
+            if (event.key === 'Enter') {
+                addTask();
+            }
+        }
+
+        // =============================================================================
+        // ANALYTICS & AI INSIGHTS
+        // =============================================================================
+        async function loadAnalytics() {
+            const totalLogs = await db.dailyLogs.count();
+            const tasks = await db.tasks.toArray();
+            const totalTasks = tasks.length;
+            const completedTasks = tasks.filter(t => t.completed).length;
+            const currentStreak = await getCurrentStreak();
+
+            document.getElementById('analyticsGrid').innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${totalLogs}</div>
+                    <div class="stat-label">Days Logged</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${completedTasks}</div>
+                    <div class="stat-label">Tasks Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${currentStreak}</div>
+                    <div class="stat-label">Current Streak</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${totalTasks > 0 ? Math.round((completedTasks/totalTasks) * 100) : 0}%</div>
+                    <div class="stat-label">Completion Rate</div>
+                </div>
+            `;
+        }
+
+        async function generateAiInsights() {
+            const insightsContent = document.getElementById('insightsContent');
+            insightsContent.innerHTML = 'Generating insights...';
+
+            const sevenDaysAgo = new Date();
+            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+            const recentLogs = await db.dailyLogs.where('date').above(getDateKey(sevenDaysAgo)).toArray();
+            
+            if (recentLogs.length < 2) {
+                insightsContent.innerHTML = 'Not enough data for insights. Use the app for a few more days!';
+                return;
+            }
+
+            const prompt = `Analyze the following daily logs from a user and provide 3 actionable productivity insights. For each insight, provide a brief
