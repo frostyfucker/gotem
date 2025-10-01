@@ -8,6 +8,8 @@
     <!-- PWA manifest -->
     <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkRhaWx5IFdvcmtmbG93IiwKICAic2hvcnRfbmFtZSI6ICJEYWlseVdvcmsiLAogICJkZXNjcmlwdGlvbiI6ICJZb3VyIHBlcnNvbmFsIHByb2R1Y3Rpdml0eSBodWIgZm9yIGRhaWx5IHdvcmsgbWFuYWdlbWVudCIsCiAgInN0YXJ0X3VybCI6ICIuLyIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzFhMWEyZSIsCiAgInRoZW1lX2NvbG9yIjogIiM2MzY2ZjEiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWw7YmFzZTY0LFBITjJaeUI0Yld4dWN6MGlhSFIwY0RvdkwzZDNkeTUzTXk1dmNtY3ZNakF3TUM5emRtY2lJSGRwWkhSb1BTSXlOREFpSUdobGFXZG9kRDBpTWpRd0lqNDhjMk55YVhCMFBqNHZQSE4yWnowaSt3a0tQSE4yWnlCNGJXeHVjejBpYUhSMGNEb3ZMMmgwWVhCc0xtOXlaeTl4T1RrNUwzaG9kRzFzSWlCM2FXUjBhRDBpTWpRd0lpQm9aV2xuYUhROUlqSTBNQ0krSUVSaGFXeDVJRmR2Y210bWJHOTNQR05wY21Oc1pTQmplRDBpTVRJd0lpQmplVDBpTVRJd0lpQnlQU0k0TUNJdlBpWm5kRHM4TDBObGNtTnNaVDRnUUNCa1lXbHNlU0IzYjNKclpteHZkeUF3THpNaVBqeDBaWGgwSUdrOVYxSmdUVTFpVEdGMGFXNHVRVTFUVUdWMWVBND0iLAogICAgICAic2l6ZXMiOiAiMjQweDI0MCIsCiAgICAgICJ0eXBlIjogImltYWdlL3N2Zyt4bWwiCiAgICB9CiAgXQp9">
     
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgMThjLTQuNDEgMC04LTMuNTktOC04czMuNTktOCA4IDggOCAzLjU5IDggOC0zLj55IDgtOCA4em0tMS0xNGgtMnY2aDJWNnpNMTEgMTBoMnYyaC0yem00IDBoMnYyaC0yeiIvPjwvc3ZnPg==">
+
     <!-- iOS meta tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -538,13 +540,20 @@
 
     <script>
         // =============================================================================
-        // GLOBAL VARIABLES
+        // GLOBAL VARIABLES & SETUP
         // =============================================================================
         let currentTimer = null;
         let startTime = null;
         let elapsedTime = 0;
         let isPaused = false;
         let currentDate = new Date();
+
+        const db = new Dexie('dailyWorkflow');
+        db.version(1).stores({
+            dailyLogs: 'date,priorities,notes,links,completed,blockers,tomorrowPriority',
+            tasks: '++id,text,completed,createdAt',
+            timeEntries: '++id,task,duration,date'
+        });
 
         // =============================================================================
         // PWA & OFFLINE FUNCTIONALITY
@@ -556,7 +565,7 @@
                     self.skipWaiting();
                 });
                 self.addEventListener('fetch', event => {
-                    event.respondWith(fetch(event.request).catch(() => new Response('Offline'))); 
+                    event.respondWith(fetch(event.request).catch(() => new Response('Offline')));
                 });
             `)).catch(e => console.log('SW failed:', e));
         }
@@ -564,19 +573,10 @@
         function updateOnlineStatus() {
             document.body.className = navigator.onLine ? 'online' : 'offline';
         }
-        window.addEventListener('online', updateOnlineStatus);
-        window.addEventListener('offline', updateOnlineStatus);
-
+        
         // =============================================================================
         // DATA MANAGEMENT (with IndexedDB via Dexie.js)
         // =============================================================================
-        const db = new Dexie('dailyWorkflow');
-        db.version(1).stores({
-            dailyLogs: 'date,priorities,notes,links,completed,blockers,tomorrowPriority',
-            tasks: '++id,text,completed,createdAt',
-            timeEntries: '++id,task,duration,date'
-        });
-
         function getDateKey(date = new Date()) {
             return date.toISOString().split('T')[0];
         }
@@ -595,7 +595,7 @@
             };
         }
 
-        async function saveDailyLog(data, date = new Date()) {
+        async function saveDailyLogData(data, date = new Date()) {
             const key = getDateKey(date);
             const logData = { ...data, date: key, timestamp: new Date().toISOString() };
             await db.dailyLogs.put(logData);
@@ -683,7 +683,7 @@
                 tomorrowPriority: document.getElementById('tomorrowPriority').value
             };
 
-            await saveDailyLog(logData, currentDate);
+            await saveDailyLogData(logData, currentDate);
             showNotification('✅ Daily log saved successfully!');
         }
 
@@ -818,4 +818,598 @@
                 return;
             }
 
-            const prompt = `Analyze the following daily logs from a user and provide 3 actionable productivity insights. For each insight, provide a brief
+            const prompt = `Analyze the following daily logs from a user and provide 3 actionable productivity insights. For each insight, provide a brief "Why" explaining the observation. Format the output as simple HTML paragraphs. Here are the logs in JSON format: ${JSON.stringify(recentLogs, null, 2)}`;
+
+            try {
+                // This is a placeholder for a real API call.
+                // In a real application, you would use fetch() to call a secure backend endpoint
+                // which would then make a call to the Gemini API with a secret key.
+                // For this environment, we simulate the call and response.
+                insightsContent.innerHTML = `
+                    <div class="suggestion-item">
+                        <strong>Insight 1:</strong> You complete more tasks on days you list 3 priorities.
+                        <p><strong>Why:</strong> Defining clear goals at the start of the day seems to focus your efforts.</p>
+                    </div>
+                    <div class="suggestion-item">
+                        <strong>Insight 2:</strong> Your "blockers" section often mentions "API documentation".
+                        <p><strong>Why:</strong> You may be able to save time by allocating a specific block for reading documentation before starting to code.</p>
+                    </div>
+                     <div class="suggestion-item">
+                        <strong>Insight 3:</strong> You have a 3-day streak of completing your top priority.
+                        <p><strong>Why:</strong> Keep the momentum going! Whatever you're doing is working.</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error generating AI insights:', error);
+                insightsContent.innerHTML = 'Sorry, there was an error generating insights.';
+            }
+        }
+
+        async function getCurrentStreak() {
+            let streak = 0;
+            let checkDate = new Date();
+            
+            for (let i = 0; i < 365; i++) { // Check up to a year
+                const dateKey = getDateKey(checkDate);
+                if (await db.dailyLogs.get(dateKey)) {
+                    streak++;
+                    checkDate.setDate(checkDate.getDate() - 1);
+                } else {
+                    break;
+                }
+            }
+            return streak;
+        }
+
+        // =============================================================================
+        // SEARCH FUNCTIONALITY
+        // =============================================================================
+        async function performSearch() {
+            const query = document.getElementById('searchInput').value.trim().toLowerCase();
+            if (!query) return;
+
+            const results = [];
+            
+            const logs = await db.dailyLogs.toArray();
+            logs.forEach(log => {
+                const searchableText = [log.priorities.join(' '), log.notes, log.links, log.completed, log.blockers, log.tomorrowPriority].join(' ').toLowerCase();
+                if (searchableText.includes(query)) {
+                    results.push({
+                        type: 'Daily Log',
+                        date: new Date(log.date + 'T00:00:00').toLocaleDateString(),
+                        content: getSearchSnippet(searchableText, query),
+                        data: log
+                    });
+                }
+            });
+
+            const tasks = await db.tasks.toArray();
+            tasks.forEach(task => {
+                if (task.text.toLowerCase().includes(query)) {
+                    results.push({
+                        type: 'Task',
+                        date: new Date(task.createdAt).toLocaleDateString(),
+                        content: task.text,
+                        data: task
+                    });
+                }
+            });
+
+            displaySearchResults(results, query);
+        }
+
+        function getSearchSnippet(text, query) {
+            const index = text.indexOf(query);
+            const start = Math.max(0, index - 50);
+            const end = Math.min(text.length, index + query.length + 50);
+            let snippet = text.substring(start, end);
+            
+            if (start > 0) snippet = '...' + snippet;
+            if (end < text.length) snippet = snippet + '...';
+            
+            return snippet.replace(new RegExp(query, 'gi'), `<strong>$&</strong>`);
+        }
+
+        function displaySearchResults(results, query) {
+            const container = document.getElementById('searchResults');
+            
+            if (results.length === 0) {
+                container.innerHTML = `<p>No results found for "${query}"</p>`;
+                return;
+            }
+
+            container.innerHTML = `
+                <h4>Found ${results.length} result(s) for "${query}":</h4>
+                ${results.map(result => `
+                    <div class="search-result">
+                        <strong>${result.type}</strong> - ${result.date}
+                        <p>${result.content}</p>
+                    </div>
+                `).join('')}
+            `;
+        }
+
+        function handleSearchKeyPress(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        }
+
+        // =============================================================================
+        // TEMPLATE SYSTEM
+        // =============================================================================
+        function applyTemplate(templateName) {
+            const templateCards = document.querySelectorAll('.template-card');
+            templateCards.forEach(card => card.style.opacity = '0.5');
+
+            const templates = {
+                standard: {
+                    name: 'Standard Daily',
+                    priorities: ['', '', ''],
+                    notes: '## Focus Areas
+- 
+- 
+- 
+
+## Notes
+
+
+## Links & References
+
+',
+                    links: '',
+                    completed: '',
+                    blockers: '',
+                    tomorrowPriority: ''
+                },
+                meeting: {
+                    name: 'Meeting Day',
+                    priorities: ['Prepare for meetings', 'Review agendas', 'Follow up on action items'],
+                    notes: '## Meeting Notes
+
+**Meeting:** 
+**Attendees:** 
+
+### Agenda
+
+
+### Discussion
+
+
+### Action Items
+- [ ] 
+- [ ] ',
+                    links: '',
+                    completed: '',
+                    blockers: '',
+                    tomorrowPriority: 'Follow up on meeting outcomes'
+                },
+                project: {
+                    name: 'Project Focus',
+                    priorities: ['', '', ''],
+                    notes: '## Project Work
+
+**Project:** 
+**Sprint/Phase:** 
+
+### Today's Objectives
+- [ ] 
+- [ ] 
+
+### Code/Technical Notes
+
+
+### Decisions Made
+',
+                    links: '',
+                    completed: '',
+                    blockers: '',
+                    tomorrowPriority: 'Continue with project tasks'
+                },
+                planning: {
+                    name: 'Planning & Strategy',
+                    priorities: ['Review strategic objectives', 'Set measurable goals', 'Plan resource allocation'],
+                    notes: '## Strategic Planning
+
+### Objectives Review
+
+
+### KPIs to Track
+
+
+### Resource Planning
+',
+                    links: '',
+                    completed: '',
+                    blockers: '',
+                    tomorrowPriority: 'Begin execution of planned initiatives'
+                }
+            };
+
+            const template = templates[templateName];
+            if (template) {
+                const preview = `
+                    <div style="max-width: 500px;">
+                        <h3>Apply ${template.name} Template?</h3>
+                        <p><strong>This will replace the current log content.</strong></p>
+                        <p style="color: #fbbf24;">⚠️ Any existing content for this day will be overwritten.</p>
+                    </div>
+                `;
+
+                const modal = document.createElement('div');
+                modal.style.cssText = `
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center;
+                    z-index: 10000; backdrop-filter: blur(5px);
+                `;
+                
+                modal.innerHTML = `
+                    <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.2); color: #e2e8f0; text-align: center;">
+                        ${preview}
+                        <div style="margin-top: 20px;">
+                            <button id="confirmApply" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; padding: 12px 24px; border-radius: 8px; margin: 0 10px; cursor: pointer; font-weight: 600;">✅ Apply</button>
+                            <button id="cancelApply" style="background: rgba(255,255,255,0.1); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.2); padding: 12px 24px; border-radius: 8px; margin: 0 10px; cursor: pointer;">❌ Cancel</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+
+                document.getElementById('confirmApply').onclick = () => confirmTemplate(template);
+                document.getElementById('cancelApply').onclick = () => cancelTemplate();
+            }
+
+            setTimeout(() => {
+                templateCards.forEach(card => card.style.opacity = '1');
+            }, 100);
+        }
+
+        function confirmTemplate(template) {
+            if (template) {
+                document.querySelectorAll('.priority-input').forEach((input, index) => {
+                    input.value = template.priorities[index] || '';
+                });
+                
+                document.getElementById('dailyNotes').value = template.notes;
+                document.getElementById('dailyLinks').value = template.links;
+                document.getElementById('completed').value = template.completed;
+                document.getElementById('blockers').value = template.blockers;
+                document.getElementById('tomorrowPriority').value = template.tomorrowPriority;
+
+                switchTab('daily');
+                
+                setTimeout(() => {
+                    saveDailyLog();
+                }, 500);
+
+                showNotification(`📋 ${template.name} template applied!`);
+                
+                const dailyTab = document.querySelector('[onclick="switchTab('daily')"]');
+                dailyTab.style.animation = 'pulse 2s ease-in-out';
+                setTimeout(() => dailyTab.style.animation = '', 2000);
+            }
+            
+            cancelTemplate();
+        }
+
+        function cancelTemplate() {
+            const modal = document.querySelector('[style*="position: fixed"]');
+            if (modal) modal.remove();
+        }
+
+        // =============================================================================
+        // TIMER FUNCTIONALITY
+        // =============================================================================
+        async function startTimer() {
+            const taskName = document.getElementById('currentTask').value.trim();
+            if (!taskName) {
+                showNotification('⚠️ Please enter a task name first');
+                return;
+            }
+
+            if (!isPaused) {
+                startTime = Date.now();
+                elapsedTime = 0;
+            } else {
+                startTime = Date.now() - elapsedTime;
+                isPaused = false;
+            }
+
+            currentTimer = setInterval(updateTimerDisplay, 1000);
+            
+            document.querySelector('[onclick="startTimer()"]').style.opacity = '0.5';
+            document.querySelector('[onclick="pauseTimer()"]').style.opacity = '1';
+            document.querySelector('[onclick="stopTimer()"]').style.opacity = '1';
+        }
+
+        function pauseTimer() {
+            if (currentTimer) {
+                clearInterval(currentTimer);
+                currentTimer = null;
+                isPaused = true;
+                elapsedTime = Date.now() - startTime;
+                
+                document.querySelector('[onclick="startTimer()"]').style.opacity = '1';
+                document.querySelector('[onclick="pauseTimer()"]').style.opacity = '0.5';
+            }
+        }
+
+        async function stopTimer() {
+            if (currentTimer || isPaused) {
+                clearInterval(currentTimer);
+                currentTimer = null;
+                
+                const taskName = document.getElementById('currentTask').value.trim();
+                const totalTime = isPaused ? elapsedTime : Date.now() - startTime;
+                
+                await db.timeEntries.add({
+                    task: taskName,
+                    duration: totalTime,
+                    date: new Date().toISOString()
+                });
+                
+                elapsedTime = 0;
+                isPaused = false;
+                document.getElementById('timerDisplay').textContent = '00:00:00';
+                document.getElementById('currentTask').value = '';
+                
+                document.querySelector('[onclick="startTimer()"]').style.opacity = '1';
+                document.querySelector('[onclick="pauseTimer()"]').style.opacity = '0.5';
+                document.querySelector('[onclick="stopTimer()"]').style.opacity = '0.5';
+                
+                await loadTimeHistory();
+                showNotification(`⏱️ Timer stopped! Worked on "${taskName}" for ${formatTime(totalTime)}`);
+            }
+        }
+
+        function updateTimerDisplay() {
+            if (startTime) {
+                const elapsed = Date.now() - startTime;
+                document.getElementById('timerDisplay').textContent = formatTime(elapsed);
+            }
+        }
+
+        function formatTime(milliseconds) {
+            const seconds = Math.floor(milliseconds / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            return `${hours.toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
+        }
+
+        async function loadTimeHistory() {
+            const today = new Date().toDateString();
+            const allEntries = await db.timeEntries.toArray();
+            const todayEntries = allEntries.filter(entry => 
+                new Date(entry.date).toDateString() === today
+            );
+
+            const container = document.getElementById('timeHistory');
+            
+            if (todayEntries.length === 0) {
+                container.innerHTML = '<p>No time entries for today yet.</p>';
+                return;
+            }
+
+            const totalTime = todayEntries.reduce((sum, entry) => sum + entry.duration, 0);
+            
+            container.innerHTML = `
+                <div class="stat-card" style="margin-bottom: 20px;">
+                    <div class="stat-number">${formatTime(totalTime)}</div>
+                    <div class="stat-label">Total Time Today</div>
+                </div>
+                <div>
+                    ${todayEntries.map(entry => `
+                        <div style="background: rgba(255,255,255,0.05); padding: 10px; margin: 5px 0; border-radius: 8px;">
+                            <strong>${entry.task}</strong><br>
+                            Duration: ${formatTime(entry.duration)}<br>
+                            Time: ${new Date(entry.date).toLocaleTimeString()}
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // =============================================================================
+        // UTILITY FUNCTIONS
+        // =============================================================================
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: linear-gradient(135deg, #10b981, #059669);
+                color: white;
+                padding: 15px 25px;
+                border-radius: 10px;
+                font-weight: 600;
+                z-index: 1000;
+                box-shadow: 0 10px 25px rgba(16, 185, 129, 0.3);
+                animation: slideIn 0.3s ease-out;
+            `;
+            notification.textContent = message;
+            
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+                    to { transform: translateX(-50%) translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => notification.remove(), 300);
+            }, 3000);
+        }
+
+        async function exportData() {
+            try {
+                const allData = {
+                    dailyLogs: await db.dailyLogs.toArray(),
+                    tasks: await db.tasks.toArray(),
+                    timeEntries: await db.timeEntries.toArray()
+                };
+
+                const exportBundle = {
+                    exportDate: new Date().toISOString(),
+                    version: "1.1-indexeddb",
+                    data: allData
+                };
+
+                const dataStr = JSON.stringify(exportBundle, null, 2);
+                const dataBlob = new Blob([dataStr], {type: 'application/json'});
+                
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `daily-workflow-backup-${new Date().toISOString().split('T')[0]}.json`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                
+                showNotification('📤 Data exported successfully!');
+                
+            } catch (error) {
+                console.error('Export failed:', error);
+                showNotification('❌ Export failed: ' + error.message);
+            }
+        }
+
+        function importData() {
+            try {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.style.display = 'none';
+                
+                input.onchange = function(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const reader = new FileReader();
+                    reader.onload = async function(e) {
+                        try {
+                            const fileContent = e.target.result;
+                            let importedBundle = JSON.parse(fileContent);
+                            let importedData = importedBundle.data;
+
+                            if (!importedData || !importedData.dailyLogs || !importedData.tasks) {
+                                throw new Error("Invalid or legacy data format.");
+                            }
+                            
+                            if (confirm('This will replace all current data. Are you sure?')) {
+                                await db.transaction('rw', db.dailyLogs, db.tasks, db.timeEntries, async () => {
+                                    await db.dailyLogs.clear();
+                                    await db.tasks.clear();
+                                    await db.timeEntries.clear();
+
+                                    await db.dailyLogs.bulkPut(importedData.dailyLogs);
+                                    await db.tasks.bulkPut(importedData.tasks);
+                                    if (importedData.timeEntries) {
+                                        await db.timeEntries.bulkPut(importedData.timeEntries);
+                                    }
+                                });
+
+                                await loadDailyLog();
+                                showNotification('📥 Data imported successfully!');
+                            }
+                        } catch (error) {
+                            console.error('Import failed:', error);
+                            showNotification('❌ Invalid file format: ' + error.message);
+                        }
+                    };
+                    
+                    reader.onerror = function() {
+                        showNotification('❌ Failed to read file');
+                    };
+                    
+                    reader.readAsText(file);
+                };
+                
+                document.body.appendChild(input);
+                input.click();
+                document.body.removeChild(input);
+                
+            } catch (error) {
+                console.error('Import setup failed:', error);
+                showNotification('❌ Import failed: ' + error.message);
+            }
+        }
+
+        async function generateReport() {
+            try {
+                const logs = await db.dailyLogs.toArray();
+                const tasks = await db.tasks.toArray();
+                const timeEntries = await db.timeEntries.toArray();
+                
+                const completedTasks = tasks.filter(t => t.completed);
+                const totalTimeToday = timeEntries
+                    .filter(entry => new Date(entry.date).toDateString() === new Date().toDateString())
+                    .reduce((sum, entry) => sum + (entry.duration || 0), 0);
+
+                const report = `# Daily Workflow Report
+Generated: ${new Date().toLocaleString()}
+
+## Overview Statistics
+- **Total days logged:** ${logs.length}
+- **Total tasks created:** ${tasks.length}
+- **Total tasks completed:** ${completedTasks.length}
+- **Completion rate:** ${tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0}%
+- **Total time entries:** ${timeEntries.length}
+- **Time tracked today:** ${formatTime(totalTimeToday)}
+- **Current streak:** ${await getCurrentStreak()} days
+
+...`;
+                
+                const blob = new Blob([report], {type: 'text/markdown; charset=utf-8'});
+                const url = URL.createObjectURL(blob);
+                
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `daily-workflow-report-${new Date().toISOString().split('T')[0]}.md`;
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                setTimeout(() => URL.revokeObjectURL(url), 100);
+                
+                showNotification('📊 Report generated successfully!');
+                
+            } catch (error) {
+                console.error('Report generation failed:', error);
+                showNotification('❌ Report generation failed: ' + error.message);
+            }
+        }
+
+        // =============================================================================
+        // INITIALIZATION
+        // =============================================================================
+        document.addEventListener('DOMContentLoaded', async function() {
+            updateCurrentDate();
+            updateOnlineStatus();
+            await loadDailyLog();
+            
+            document.addEventListener('input', function(e) {
+                if (e.target.matches('.priority-input, #dailyNotes, #dailyLinks, #completed, #blockers, #tomorrowPriority')) {
+                    clearTimeout(window.autoSaveTimeout);
+                    window.autoSaveTimeout = setTimeout(async () => {
+                        await saveDailyLog();
+                    }, 2000);
+                }
+            });
+            
+            setInterval(updateCurrentDate, 60000);
+        });
+    </script>
+</body>
+</html>
